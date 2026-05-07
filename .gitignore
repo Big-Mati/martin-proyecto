@@ -1,0 +1,4 @@
+entorno_ia/
+__pycache__/
+*.py[cod]
+*$py.class

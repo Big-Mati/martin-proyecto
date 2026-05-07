@@ -1,0 +1,9 @@
+opencv-python
+numpy
+deepface
+tf-keras
+ultralytics
+mysql-connector-python
+streamlit
+pandas
+plotly
