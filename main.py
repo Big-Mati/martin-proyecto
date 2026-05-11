@@ -64,15 +64,13 @@ C_RED  = (60,   60, 230)   # salida
 C_GREY = (150, 150, 150)   # identificando
 
 ZONAS = {
-    "#1 Gaming": {"id_db": 1, "coords": (0, 0, 640, 720)},
-    "#6 Chilled": {"id_db": 2, "coords": (640, 0, 1280, 720)},
+    "#1 Escolar": {"id_db": 1, "coords": (0, 0, 640, 720)},
+    "#2 Tecno": {"id_db": 2, "coords": (640, 0, 1280, 360)},
+    "#3 Papelería": {"id_db": 3, "coords": (640, 360, 1280, 720)},
 }
 
 person_counter = 0
 door_events = {"ENTRADA": 0, "SALIDA": 0}  # Contador diario
-
-
-
 
 # ══════════════════════════════════════════════════════════════════
 # SELECTOR DE CÁMARA (Tkinter)
@@ -87,7 +85,6 @@ def scan_cams():
                 found.append(i)
             c.release()
     return found or [0]
-
 
 def select_cam_gui(cams):
     if len(cams) == 1:
@@ -143,7 +140,6 @@ def select_cam_gui(cams):
     ).pack(pady=14)
     root.mainloop()
     return res[0]
-
 
 # ══════════════════════════════════════════════════════════════════
 # DETECCIÓN FACIAL MEJORADA
@@ -352,10 +348,10 @@ def draw_info_panel(frame, datos, dwell, poi, x1, y1, x2, y2, ancho, alto):
     G, W = (185, 185, 185), (255, 255, 255)
     rows = [
         ("Dwell time:", dwell),
-        ("POI:", poi),
-        ("Gender:", str(datos["gender"])),
-        ("Age:", str(datos["age"])),
-        ("Facial exp.:", str(datos["emotion"])),
+        ("Zona POI:", poi),
+        ("Género:", str(datos["gender"])),
+        ("Edad:", str(datos["age"])),
+        ("Expresión:", str(datos["emotion"])),
     ]
     for i, (lb, vl) in enumerate(rows):
         cv2.putText(frame, lb, (tx, sy + i * lh), cv2.FONT_HERSHEY_SIMPLEX, 0.44, G, 1)
@@ -432,6 +428,7 @@ while True:
 
     pc, oc = 0, 0
     obj_frame = {}
+    personas_en_frame = []
     DOOR_Y = int(alto * DOOR_LINE_Y_PCT)
 
     if rp[0].boxes is not None and len(rp[0].boxes) > 0:
@@ -571,11 +568,14 @@ while True:
                                 return (
                                     int(a[0]["age"]),
                                     (
-                                        "Male"
+                                        "Hombre"
                                         if a[0]["dominant_gender"] == "Man"
-                                        else "Female"
+                                        else "Mujer"
                                     ),
-                                    a[0]["dominant_emotion"].capitalize(),
+                                    {
+                                        "angry": "Enojado", "disgust": "Disgusto", "fear": "Miedo",
+                                        "happy": "Feliz", "sad": "Triste", "surprise": "Sorpresa", "neutral": "Neutral"
+                                    }.get(a[0]["dominant_emotion"].lower(), a[0]["dominant_emotion"].capitalize()),
                                 )
                             except:
                                 return None
@@ -587,7 +587,7 @@ while True:
                 m, s = divmod(seg, 60)
                 dwell = f"{m:02d}:{s:02d}"
                 pxc = (x1 + x2) // 2
-                poi = "None"
+                poi = "Ninguna"
                 for nz, iz in ZONAS.items():
                     zx1, zy1, zx2, zy2 = iz["coords"]
                     if zx1 <= pxc <= zx2 and zy1 <= y2 <= zy2:
@@ -608,7 +608,7 @@ while True:
                                 )
                                 d["id_movimiento_db"] = lid
                         break
-                if poi == "None" and d["zona_actual"]:
+                if poi == "Ninguna" and d["zona_actual"]:
                     if d["id_movimiento_db"]:
                         db_run(
                             "UPDATE fact_movimientos_ia SET fecha_salida=NOW() "
@@ -645,13 +645,16 @@ while True:
                 if d.get("door_flash", 0) > 0:
                     col = C_GRN if d.get("last_door_tipo") == "ENTRADA" else C_RED
                 draw_corners(frame, x1, y1, x2, y2, col)
+                personas_en_frame.append((tid, x1, y1, x2, y2))
                 label = f"Anonymous Hash #{d['num']:03d}"
                 draw_pill_label(frame, label, (x1 + x2) // 2, y1, col, ancho)
                 draw_info_panel(frame, d, dwell, poi, x1, y1, x2, y2, ancho, alto)
 
             # ══ OTROS OBJETOS ════════════════════════════════════════
             else:
-                cn = COCO.get(cid, f"obj{cid}")
+                MAPA_NOMBRES_OBJ = {24: 'Mochila', 67: 'Celular', 39: 'Botella', 73: 'Libro', 26: 'Bolso', 28: 'Maleta', 41: 'Taza', 63: 'Laptop'}
+                MAPA_PRODUCTOS = {24: 1, 67: 2, 39: 3, 73: 4}
+                cn = MAPA_NOMBRES_OBJ.get(cid, COCO.get(cid, f"obj{cid}"))
                 cf = float(box_tensor.conf[0])
                 ox1, oy1, ox2, oy2 = map(int, box)
                 col = cls_color(cid)
@@ -686,6 +689,21 @@ while True:
                         "(clase_objeto,confianza,zona_detectada) VALUES(%s,%s,%s)",
                         (cn, round(cf, 3), zona_o),
                     )
+
+                # ── Interacciones IA (Persona + Objeto) ──
+                if cid in MAPA_PRODUCTOS:
+                    for ptid, px1, py1, px2, py2 in personas_en_frame:
+                        # Comprobar intersección de cajas (bounding boxes)
+                        if not (px2 < ox1 or px1 > ox2 or py2 < oy1 or py1 > oy2):
+                            id_prod = MAPA_PRODUCTOS[cid]
+                            d_p = personas.get(ptid)
+                            if d_p and d_p.get("id_visita_db"):
+                                k = f"int_{ptid}_{id_prod}"
+                                if now - obj_logged.get(k, 0) > OBJ_COOL:
+                                    obj_logged[k] = now
+                                    db_run("INSERT INTO fact_interacciones_ia (id_visita, id_producto, tipo_accion, emocion_detectada, fecha_hora) VALUES (%s, %s, %s, %s, NOW())",
+                                        (d_p["id_visita_db"], id_prod, "interaccion_fisica", d_p.get("emotion", "Neutral")))
+                            break
 
     # ── Limpieza de personas que salieron del cuadro ───────────────
     TIEMPO_GRACIA = 10.0

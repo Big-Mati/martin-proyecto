@@ -70,9 +70,27 @@ def load_puerta():
         return pd.DataFrame()
 
 
+@st.cache_data(ttl=5)
+def load_interacciones():
+    try:
+        con = mysql.connector.connect(**DB_CFG)
+        query = """
+            SELECT i.fecha_hora, v.track_id, p.nombre_producto, i.emocion_detectada
+            FROM fact_interacciones_ia i
+            JOIN fact_visitas_ia v ON i.id_visita = v.id_visita
+            JOIN dim_productos p ON i.id_producto = p.id_producto
+            ORDER BY i.fecha_hora DESC
+        """
+        df = pd.read_sql(query, con)
+        con.close()
+        return df
+    except Exception:
+        return pd.DataFrame()
+
 df_p = load_personas()
 df_obj = load_objetos()
 df_door = load_puerta()
+df_int = load_interacciones()
 
 # ── Botón actualizar ───────────────────────────────────────────────────────────
 col_ref, _ = st.columns([1, 9])
@@ -183,12 +201,12 @@ if not df_p.empty:
 
     col_a, col_b = st.columns(2)
     with col_a:
-        st.markdown("#### Gender & Age")
+        st.markdown("#### Género y Edad")
         df_unico = df_p.drop_duplicates("track_id")
         df_demo  = df_unico.groupby(["rango_edad", "genero"]).size().reset_index(name="n")
         fig2 = px.bar(
             df_demo, x="rango_edad", y="n", color="genero", barmode="group",
-            color_discrete_map={"Male": "#60a5fa", "Female": "#f472b6", "--": "#9ca3af"},
+            color_discrete_map={"Hombre": "#60a5fa", "Mujer": "#f472b6", "--": "#9ca3af"},
             labels={"rango_edad": "Edad", "n": "Visitantes (%)"},
             text_auto=True,
         )
@@ -200,7 +218,7 @@ if not df_p.empty:
         st.plotly_chart(fig2, use_container_width=True)
 
     with col_b:
-        st.markdown("#### Engaged visitors (Dwell time)")
+        st.markdown("#### Visitantes Comprometidos (Dwell time)")
         # Tiers de engagement (como DISPL)
         bins_e = [0, 5, 10, 15, 9999]
         labs_e = ["< 5 s", "5–10 s", "11–15 s", "> 15 s"]
@@ -344,6 +362,13 @@ else:
             font_color="#374151", legend=dict(orientation="h", y=-0.3),
         )
         st.plotly_chart(fig_oz, use_container_width=True)
+
+    st.markdown("#### Últimas Interacciones Físicas (Cliente ↔ Producto)")
+    if not df_int.empty:
+        cols_i = ["fecha_hora", "track_id", "nombre_producto", "emocion_detectada"]
+        st.dataframe(df_int[cols_i].head(15), use_container_width=True)
+    else:
+        st.info("Aún no se han detectado interacciones de clientes con productos.")
 
     csv_obj = df_obj.to_csv(index=False).encode("utf-8")
     st.download_button("📥 Exportar objetos (CSV)", csv_obj, "objetos_detectados.csv", "text/csv")
