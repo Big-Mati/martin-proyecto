@@ -1,0 +1,10 @@
+[pyrefly]
+# Ignorar archivos virtuales de inmemory
+ignore = ["**/__pyrefly_virtual__/**"]
+
+# No reportar módulos faltantes del entorno virtual
+python_environment = "venv"
+
+[pyrefly.errors]
+# Desactivar análisis de strings (causa falsos positivos con HTML/CSS)
+missing-import = false

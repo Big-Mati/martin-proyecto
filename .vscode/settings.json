@@ -1,0 +1,10 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/entorno_ia/Scripts/python.exe",
+  "python.analysis.typeCheckingMode": "off",
+  "pyrefly.enable": false,
+  "python.linting.enabled": false,
+  "python.linting.pylintEnabled": false,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.python"
+  }
+}
