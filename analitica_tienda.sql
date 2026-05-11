@@ -7,9 +7,11 @@
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
+-- creacion de la base de datos
 CREATE DATABASE IF NOT EXISTS `analitica_tienda` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
 USE `analitica_tienda`;
 
+-- tabla de dimensiones: empleados
 CREATE TABLE IF NOT EXISTS `dim_empleados` (
   `id_empleado` int NOT NULL AUTO_INCREMENT,
   `nombre_vendedor` varchar(150) NOT NULL,
@@ -18,6 +20,7 @@ CREATE TABLE IF NOT EXISTS `dim_empleados` (
   PRIMARY KEY (`id_empleado`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- tabla de dimensiones: productos
 CREATE TABLE IF NOT EXISTS `dim_productos` (
   `id_producto` int NOT NULL AUTO_INCREMENT,
   `nombre_producto` varchar(150) NOT NULL,
@@ -26,12 +29,25 @@ CREATE TABLE IF NOT EXISTS `dim_productos` (
   PRIMARY KEY (`id_producto`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+INSERT IGNORE INTO `dim_productos` (`id_producto`, `nombre_producto`, `categoria`, `precio`) VALUES 
+(1, 'Mochila Escolar', 'Escolar', 45.00),
+(2, 'Celular Smartphone', 'Tecno', 250.00),
+(3, 'Refresco / Botella', 'Escolar', 1.50),
+(4, 'Cuaderno / Libro', 'Papelería', 3.00);
+
+-- tabla de dimensiones: zonas de la tienda
 CREATE TABLE IF NOT EXISTS `dim_zonas` (
   `id_zona` int NOT NULL AUTO_INCREMENT,
   `nombre_zona` varchar(100) NOT NULL,
   PRIMARY KEY (`id_zona`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+INSERT IGNORE INTO `dim_zonas` (`id_zona`, `nombre_zona`) VALUES 
+(1, 'Escolar'),
+(2, 'Tecno'),
+(3, 'Papelería');
+
+-- tabla de hechos: registro de entradas y salidas en puerta
 CREATE TABLE IF NOT EXISTS `fact_entradas_salidas` (
   `id` int NOT NULL AUTO_INCREMENT,
   `track_id` varchar(100) NOT NULL,
@@ -41,6 +57,7 @@ CREATE TABLE IF NOT EXISTS `fact_entradas_salidas` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- tabla de hechos: interacciones con productos
 CREATE TABLE IF NOT EXISTS `fact_interacciones_ia` (
   `id_interaccion` int NOT NULL AUTO_INCREMENT,
   `id_visita` int NOT NULL,
@@ -55,6 +72,7 @@ CREATE TABLE IF NOT EXISTS `fact_interacciones_ia` (
   CONSTRAINT `fact_interacciones_ia_ibfk_2` FOREIGN KEY (`id_producto`) REFERENCES `dim_productos` (`id_producto`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- tabla de hechos: tracking de movimientos entre zonas (dwell time)
 CREATE TABLE IF NOT EXISTS `fact_movimientos_ia` (
   `id_movimiento` int NOT NULL AUTO_INCREMENT,
   `id_visita` int NOT NULL,
@@ -68,6 +86,7 @@ CREATE TABLE IF NOT EXISTS `fact_movimientos_ia` (
   CONSTRAINT `fact_movimientos_ia_ibfk_2` FOREIGN KEY (`id_zona`) REFERENCES `dim_zonas` (`id_zona`)
 ) ENGINE=InnoDB AUTO_INCREMENT=339 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- tabla de hechos: registro de objetos detectados (mochilas, laptops, etc)
 CREATE TABLE IF NOT EXISTS `fact_objetos_detectados` (
   `id_objeto` int NOT NULL AUTO_INCREMENT,
   `clase_objeto` varchar(100) NOT NULL,
@@ -77,6 +96,7 @@ CREATE TABLE IF NOT EXISTS `fact_objetos_detectados` (
   PRIMARY KEY (`id_objeto`)
 ) ENGINE=InnoDB AUTO_INCREMENT=55 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- tabla de hechos: registro de ventas del erp
 CREATE TABLE IF NOT EXISTS `fact_ventas` (
   `id_ticket` int NOT NULL AUTO_INCREMENT,
   `id_producto` int NOT NULL,
@@ -88,6 +108,7 @@ CREATE TABLE IF NOT EXISTS `fact_ventas` (
   CONSTRAINT `fact_ventas_ibfk_1` FOREIGN KEY (`id_producto`) REFERENCES `dim_productos` (`id_producto`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- tabla de hechos: registro principal de visitas detectadas por ia
 CREATE TABLE IF NOT EXISTS `fact_visitas_ia` (
   `id_visita` int NOT NULL AUTO_INCREMENT,
   `track_id` varchar(100) NOT NULL,
@@ -103,6 +124,7 @@ CREATE TABLE IF NOT EXISTS `fact_visitas_ia` (
   CONSTRAINT `fact_visitas_ia_ibfk_1` FOREIGN KEY (`id_empleado_detectado`) REFERENCES `dim_empleados` (`id_empleado`)
 ) ENGINE=InnoDB AUTO_INCREMENT=74 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- estructura temporal para la vista de metricas
 CREATE TABLE `vw_metricas_dashboard` (
 	`track_id` VARCHAR(1) NOT NULL COLLATE 'utf8mb4_0900_ai_ci',
 	`genero` VARCHAR(1) NULL COLLATE 'utf8mb4_0900_ai_ci',
@@ -115,6 +137,7 @@ CREATE TABLE `vw_metricas_dashboard` (
 	`dwell_time_segundos` BIGINT NULL
 ) ENGINE=MyISAM;
 
+-- estructura temporal para la vista de objetos
 CREATE TABLE `vw_objetos_dashboard` (
 	`clase_objeto` VARCHAR(1) NOT NULL COLLATE 'utf8mb4_0900_ai_ci',
 	`zona_detectada` VARCHAR(1) NULL COLLATE 'utf8mb4_0900_ai_ci',
@@ -124,9 +147,11 @@ CREATE TABLE `vw_objetos_dashboard` (
 	`hora` INT NULL
 ) ENGINE=MyISAM;
 
+-- vista analitica: consolida metricas de visitas, zonas y calcula dwell time
 DROP TABLE IF EXISTS `vw_metricas_dashboard`;
 CREATE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW `vw_metricas_dashboard` AS select `v`.`track_id` AS `track_id`,`v`.`genero` AS `genero`,`v`.`edad_estimada` AS `edad_estimada`,`v`.`emocion_dominante` AS `emocion_dominante`,`m`.`id_zona` AS `id_zona`,`z`.`nombre_zona` AS `nombre_zona`,`m`.`fecha_ingreso` AS `fecha_ingreso`,`m`.`fecha_salida` AS `fecha_salida`,timestampdiff(SECOND,`m`.`fecha_ingreso`,ifnull(`m`.`fecha_salida`,now())) AS `dwell_time_segundos` from ((`fact_visitas_ia` `v` join `fact_movimientos_ia` `m` on((`v`.`id_visita` = `m`.`id_visita`))) join `dim_zonas` `z` on((`m`.`id_zona` = `z`.`id_zona`))) where (`v`.`es_empleado` = false);
 
+-- vista analitica: frecuencia de objetos por hora
 DROP TABLE IF EXISTS `vw_objetos_dashboard`;
 CREATE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW `vw_objetos_dashboard` AS select `fact_objetos_detectados`.`clase_objeto` AS `clase_objeto`,`fact_objetos_detectados`.`zona_detectada` AS `zona_detectada`,count(0) AS `total_detecciones`,round((avg(`fact_objetos_detectados`.`confianza`) * 100),1) AS `confianza_prom_pct`,max(`fact_objetos_detectados`.`fecha_hora`) AS `ultima_vez`,hour(`fact_objetos_detectados`.`fecha_hora`) AS `hora` from `fact_objetos_detectados` group by `fact_objetos_detectados`.`clase_objeto`,`fact_objetos_detectados`.`zona_detectada`,hour(`fact_objetos_detectados`.`fecha_hora`);
 
