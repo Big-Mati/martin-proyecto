@@ -3,7 +3,7 @@
 Sistema avanzado de análisis de audiencia en tiempo real para tiendas físicas. Utiliza Visión Artificial (YOLOv8s + OpenCV) para detectar clientes, medir su tiempo de permanencia (*Dwell Time*) en zonas clave y estimar su perfil demográfico (edad, género, emociones) para optimizar el staff (RRHH) y realizar reportes gerenciales.
 
 ## 🚀 1. Requisitos Previos
-- **Python 3.11 o 3.12** instalado en tu sistema.
+- **Python 3.10** instalado en tu sistema.
 - **XAMPP** o cualquier servidor local con **MySQL** (MariaDB) activo y corriendo en el puerto 3306.
 - Una cámara web conectada al PC.
 
@@ -18,7 +18,7 @@ Abre una terminal (PowerShell) en la carpeta raíz de tu proyecto y ejecuta los 
 
 ```powershell
 # 1. Crear el entorno virtual
-python -m venv entorno_ia
+py -3.10 -m venv entorno_ia
 
 # 2. Dar permisos de ejecución (Solo si estás en PowerShell Windows)
 Set-ExecutionPolicy Unrestricted -Scope Process
